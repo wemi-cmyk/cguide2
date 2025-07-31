@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beowulf Cluster & Cloud Setup Commands</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+      line-height: 1.6;
+      padding: 2rem;
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+    }
+    section {
+      background: #ffffff;
+      border: 1px solid #ccc;
+      border-left: 5px solid #3498db;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      border-radius: 8px;
+    }
+    h2 {
+      color: #3498db;
+    }
+    code {
+      display: block;
+      background-color: #f0f0f0;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    p {
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>CLOUD GUIDE BY WEMI</h1>
+
+  <section>
+    <h2>Reset SSH Keys on All Nodes</h2>
+    <code>rm -rf ~/.ssh</code>
+    <p>Removes all existing SSH keys for the current user.</p>
+    <code>sudo rm -rf /root/.ssh</code>
+    <p>Removes SSH keys for the root user (used in privileged operations).</p>
+  </section>
+
+  <section>
+    <h2>Set Up SSH from New Master to All Nodes</h2>
+    <code>ssh-keygen -t rsa</code>
+    <p>Generates a new RSA SSH key pair on the new master node.</p>
+    <code>ssh-copy-id user@node01</code>
+    <p>Copies the SSH public key to <code>node01</code> for passwordless login.</p>
+    <code>ssh-copy-id user@node02</code>
+    <p>Copies the SSH key to <code>node02</code>.</p>
+    <code>ssh-copy-id user@node03</code>
+    <p>Copies the SSH key to <code>node03</code>.</p>
+  </section>
+
+  <section>
+    <h2>Install Beowulf Cluster Stack on All Nodes</h2>
+    <code>sudo apt update</code>
+    <p>Refreshes the package list.</p>
+    <code>sudo apt install -y build-essential openmpi-bin openmpi-common libopenmpi-dev nfs-common nfs-kernel-server</code>
+    <p>Installs tools needed for building and running MPI programs, and NFS for shared folders.</p>
+  </section>
+
+  <section>
+    <h2>Configure Shared Directory (Master)</h2>
+    <code>mkdir -p ~/cluster</code>
+    <p>Creates a shared directory on the master node.</p>
+    <code>sudo nano /etc/exports</code>
+    <p>Edit this file and add:</p>
+    <code>/home/user/cluster 192.168.0.0/24(rw,sync,no_subtree_check)</code>
+    <p>This allows nodes in the 192.168.0.* subnet to access the shared folder.</p>
+    <code>sudo exportfs -a</code>
+    <p>Applies the NFS export changes.</p>
+    <code>sudo systemctl restart nfs-kernel-server</code>
+    <p>Restarts NFS services.</p>
+  </section>
+
+  <section>
+    <h2> Mount Shared Folder (Slaves)</h2>
+    <code>sudo mount master:/home/user/cluster ~/cluster</code>
+    <p>Mounts the shared folder from the master onto the slave nodes.</p>
+  </section>
+
+  <section>
+    <h2> Test MPI (On Master)</h2>
+    <code>nano hello.c</code>
+    <p>Creates a sample MPI C program.</p>
+    <code>mpicc hello.c -o hello</code>
+    <p>Compiles the program using the MPI C compiler.</p>
+    <code>mpirun -np 4 -hostfile hosts ./hello</code>
+    <p>Runs the program using 4 processes as defined in the <code>hosts</code> file.</p>
+  </section>
+
+  <section>
+    <h2>Install OpenNebula (On Master Only)</h2>
+    <code>wget -q -O- https://downloads.opennebula.io/repo/repo.key | sudo apt-key add -</code>
+    <p>Adds the OpenNebula repository GPG key.</p>
+    <code>echo "deb https://downloads.opennebula.io/repo/6.6/Ubuntu/22.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list</code>
+    <p>Adds the OpenNebula APT repository.</p>
+    <code>sudo apt update</code>
+    <p>Refreshes the package list.</p>
+    <code>sudo apt install opennebula opennebula-sunstone</code>
+    <p>Installs OpenNebula and its web interface.</p>
+    <code>sudo systemctl enable opennebula opennebula-sunstone</code>
+    <p>Enables OpenNebula services to start on boot.</p>
+    <code>sudo systemctl start opennebula opennebula-sunstone</code>
+    <p>Starts the services immediately.</p>
+  </section>
+
+  <section>
+    <h2>Install OpenStack DevStack</h2>
+    <code>sudo apt update</code>
+    <p>Updates package lists.</p>
+    <code>sudo apt install -y git</code>
+    <p>Installs Git to fetch the DevStack repo.</p>
+    <code>git clone https://opendev.org/openstack/devstack.git</code>
+    <p>Clones the DevStack repository.</p>
+    <code>cd devstack</code>
+    <p>Moves into the DevStack folder.</p>
+    <code>nano local.conf</code>
+    <p>Create the configuration file and add minimal config including passwords and host IP.</p>
+    <code>./stack.sh</code>
+    <p>Starts the installation process for DevStack (takes 30–45 minutes).</p>
+    <code>echo "Access dashboard at http://&lt;master-ip&gt;/dashboard"</code>
+    <p>Displays where to access the OpenStack dashboard.</p>
+  </section>
+
+  <section>
+    <h2>AI App & Dask Setup</h2>
+    <code>sudo apt install python3 python3-pip</code>
+    <p>Installs Python 3 and pip.</p>
+    <code>pip3 install flask scikit-learn dask distributed</code>
+    <p>Installs required Python packages for building AI apps and running Dask.</p>
+  </section>
+
+  <section>
+    <h2> Run Dask Scheduler & Worker</h2>
+    <h3>On Master</h3>
+    <code>dask-scheduler</code>
+    <p>Starts the central Dask scheduler to manage workers and tasks.</p>
+    <h3>On Worker Nodes</h3>
+    <code>dask-worker &lt;master-ip&gt;:8786</code>
+    <p>Connects the worker to the scheduler running on the master.</p>
+  </section>
+</body>
+</html>
